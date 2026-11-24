@@ -33,8 +33,8 @@
 ## Install
 
 <p align="center">
-  <a href="SUPPORT.md#ubuntu-and-pop_os-2404"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/deb-dark.svg"><img src=".github/media/downloads/deb-light.svg" alt="Download .deb: setup for Ubuntu 24.04 and Pop!_OS 24.04" width="264" height="68"></picture></a>
-  <a href="https://packages.quoth.dev/quoth.flatpakref"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/flatpak-dark.svg"><img src=".github/media/downloads/flatpak-light.svg" alt="Install Flatpak on supported Wayland desktops" width="264" height="68"></picture></a>
+  <a href="https://github.com/abullard1/Quoth/releases/download/v0.1.0/quoth_0.1.0_amd64.deb"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/deb-dark.svg"><img src=".github/media/downloads/deb-light.svg" alt="Download .deb: setup for Ubuntu 24.04 and Pop!_OS 24.04" width="264" height="68"></picture></a>
+  <a href="https://github.com/abullard1/Quoth/releases/download/v0.1.0/quoth.flatpak"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/flatpak-dark.svg"><img src=".github/media/downloads/flatpak-light.svg" alt="Download quoth.flatpak for supported Wayland desktops" width="264" height="68"></picture></a>
   <a href="SUPPORT.md#arch-linux"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/aur-dark.svg"><img src=".github/media/downloads/aur-light.svg" alt="Build with makepkg: setup for Arch Linux" width="264" height="68"></picture></a>
 </p>
 
