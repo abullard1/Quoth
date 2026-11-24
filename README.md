@@ -38,7 +38,7 @@
   <a href="SUPPORT.md#arch-linux"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/aur-dark.svg"><img src=".github/media/downloads/aur-light.svg" alt="Build with makepkg: setup for Arch Linux" width="264" height="68"></picture></a>
 </p>
 
-For **64-bit Linux on Wayland**. [Install &amp; update guides →](https://quoth.dev/install) · [Compatibility](#compatibility)
+[Install &amp; update guides →](https://quoth.dev/install) · [Compatibility](#compatibility)
 
 ## How it works
 
@@ -166,8 +166,7 @@ Native packages show the floating recording pill on COSMIC, KDE Plasma, Hyprland
 - [Report a security or privacy issue privately](SECURITY.md).
 - [Contribute](CONTRIBUTING.md): setup, checks and architecture. See the [design guide](DESIGN.md) for the visual language.
 - Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
-- [Sponsor Quoth](https://quoth.dev/sponsors). It unlocks nothing: every release, fix
-  and feature stays free for everyone.
+- [Sponsor Quoth](https://quoth.dev/sponsors).
 
 Quoth is built with AI assistance.
 
