@@ -38,12 +38,7 @@
   <a href="SUPPORT.md#arch-linux"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/media/downloads/aur-dark.svg"><img src=".github/media/downloads/aur-light.svg" alt="Build with makepkg: setup for Arch Linux" width="264" height="68"></picture></a>
 </p>
 
-> [!IMPORTANT]
-> Quoth needs **x86_64 Linux and a Wayland session**. X11 is not supported.
-
-Setup and updates: [Ubuntu / Pop!_OS 24.04](SUPPORT.md#ubuntu-and-pop_os-2404) ·
-[Flatpak](SUPPORT.md#flatpak) · [Arch Linux](SUPPORT.md#arch-linux). Where the
-recording pill appears: [Compatibility](#compatibility).
+For **64-bit Linux on Wayland**. [Install &amp; update guides →](https://quoth.dev/install) · [Compatibility](#compatibility)
 
 ## How it works
 
@@ -73,17 +68,15 @@ then pastes your words into the app you're using.
 
 Quoth connects to the internet only for:
 
-- **Model downloads** from Quoth's GitHub release, each checked against its SHA-256 hash.
-- **The update check**, off by default. When on, it asks GitHub for the latest release at most once a day, starting as you turn it on. **Check now** in Settings asks right away, even while it is off.
-- **Error reports**, off by default. They go to Sentry's EU region and never include audio or dictated text. The [privacy notice](PRIVACY.md) lists what a report contains.
+- **Model downloads** when you choose a speech model.
+- **Update checks** (off by default).
+- **Crash reports** (off by default, never containing audio or dictated text; see the [privacy notice](PRIVACY.md)).
 
 [What Quoth keeps on your computer →](PRIVACY.md#on-your-computer)
 
 ## Languages and models
 
-**99 languages with Tiny, Base and Small. 100 with Turbo.**
-Use Auto-detect for the model's full language range, or choose one of 19 named
-languages in Settings.
+Supports up to **100 languages** with auto-detect, and translates speech into English.
 
 <p align="center">
   <picture>
@@ -94,14 +87,9 @@ languages in Settings.
   </picture>
 </p>
 
-Translate speech **into English** with Tiny, Base or Small. Turbo
-transcribes in the spoken language.
-
 ### Choose your model
 
-Quoth runs [OpenAI's Whisper](https://github.com/openai/whisper) models through
-[whisper.cpp](https://github.com/ggml-org/whisper.cpp). Base is the default; pick a
-smaller or larger model in Settings. Once downloaded, your model works offline.
+Base is installed by default; pick a smaller or larger Whisper model in Settings. Once downloaded, your model works completely offline.
 
 <p align="center">
   <picture>
@@ -131,8 +119,7 @@ Run on CPU, or use a compatible Vulkan GPU or Intel NPU to accelerate transcript
 
 ## Make it yours
 
-Choose an overlay style and theme; changes appear live. App skins (Settings →
-General → Appearance) recolour Quoth's own windows, not the overlay.
+Choose an overlay style, theme, or window skin in Settings; changes appear live.
 
 ### Overlay styles
 
@@ -144,8 +131,6 @@ General → Appearance) recolour Quoth's own windows, not the overlay.
     <img src=".github/media/overlays.webp" alt="Pill recording overlay with a moving waveform and timer, next to the Orb (Experimental) overlay with flowing monochrome colour" width="820">
   </picture>
 </p>
-
-Overlay availability depends on your desktop and package; see [Compatibility](#compatibility).
 
 ### Themes and presets
 
@@ -170,13 +155,7 @@ Choose or import a theme in Settings, or edit the active theme file.
 
 ## Compatibility
 
-The native packages show the recording pill on COSMIC, KDE Plasma, Hyprland,
-niri and wlroots desktops such as Sway; the Flatpak shows it on KDE Plasma only,
-and GNOME never does. Without the pill, the tray and notifications carry the state.
-Automatic paste needs the focused app to accept
-<kbd>Shift</kbd>+<kbd>Insert</kbd>. With Orca running on COSMIC or on GNOME 48 and
-later, paste needs [one Orca setting](SUPPORT.md#screen-readers).
-[Desktop compatibility →](SUPPORT.md#desktop-compatibility)
+Native packages show the floating recording pill on COSMIC, KDE Plasma, Hyprland, niri, and Sway; Flatpak shows it on KDE Plasma. On other desktops (including GNOME), the tray icon and notifications show recording state. See [Desktop compatibility →](SUPPORT.md#desktop-compatibility) for details.
 
 ## Help and contribution
 
