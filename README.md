@@ -20,7 +20,6 @@
   <a href="https://github.com/abullard1/Quoth/actions/workflows/package.yml"><img src="https://img.shields.io/github/actions/workflow/status/abullard1/Quoth/package.yml?branch=main&style=flat-square&label=packages&labelColor=08080A" alt="Packages build status on main" height="20"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/abullard1/Quoth?style=flat-square&label=license&labelColor=08080A&color=3A3A42" alt="Licence: GPL-3.0-or-later" height="20"></a>
   <a href="#compatibility"><img src="https://img.shields.io/badge/Linux-Wayland_x86__64-3A3A42?style=flat-square&labelColor=08080A" alt="Linux Wayland x86_64" height="20"></a>
-  <a href="PRIVACY.md"><img src="https://img.shields.io/badge/offline-100%25_local-3A3A42?style=flat-square&labelColor=08080A" alt="Offline, 100% local" height="20"></a>
 </p>
 
 <p align="center">
@@ -43,8 +42,7 @@
 ## How it works
 
 Focus any input field. **Tap your shortcut to start and stop recording**, or choose
-**Hold while you talk** in Settings. Quoth transcribes your voice on your computer,
-then pastes your words into the app you're using.
+**Hold while you talk** in Settings. Quoth transcribes locally with whisper.cpp and pastes into the focused app.
 
 <p align="center">
   <picture>
@@ -102,7 +100,7 @@ Base is installed by default; pick a smaller or larger Whisper model in Settings
 
 [Languages, translation and model guide →](SUPPORT.md#models-languages-and-acceleration)
 
-## Local acceleration
+## Hardware acceleration
 
 Run on CPU, or use a compatible Vulkan GPU or Intel NPU to accelerate transcription.
 
@@ -117,7 +115,7 @@ Run on CPU, or use a compatible Vulkan GPU or Intel NPU to accelerate transcript
 
 [Hardware requirements →](SUPPORT.md#models-languages-and-acceleration)
 
-## Make it yours
+## Overlays and themes
 
 Choose an overlay style, theme, or window skin in Settings; changes appear live.
 
