@@ -1,106 +1,42 @@
 # Design: Quoth app
 
-Quoth uses bone-coloured text on ink surfaces, matching its website. This file
-records the default GTK tokens and component rules implemented in `brand.py`
-and the overlay themes. Keep the Default surfaces consistent when changing a
-token. App skins replace named GTK palette roles only, never images, fonts,
-widget geometry or motion; see the [customisation guide](SUPPORT.md#app-skins).
+Quoth uses bone-coloured text on ink surfaces, matching its website. This file records the default GTK tokens, surface rules and interaction conventions implemented in `brand.py` and the overlay themes. App skins replace named GTK palette roles only, never images, fonts, widget geometry or motion; see the [customisation guide](SUPPORT.md#app-skins).
 
 ## Tokens in use
 
-| Token | Value | Where in the app |
+| Token | Value | Role |
 |---|---|---|
-| ink-950 | `#08080a` | Default window and header-bar background (`skin.py`, rendered by `brand.py`) |
-| ink-900 | `#0e0e11` | Pill background (`theme.py` Palette, `default.toml`), Default alert dialogs and views (`skin.py`), app icon tile, lit to `#2a2a31` at its top edge (`scripts/generate_icons.py`) |
-| surface | bone 5% wash, 8% hairline | Cards and rows, as the site's `.surface` (`brand.py`); popovers flatten it to `#181819` |
-| bone | `#f2f0ea` | Pill text, border, waveform, and recording and transcribing dots; GTK accent (`brand.py`) |
-| bone-dim | `#cfccc3` | Secondary lines over the photograph in onboarding's Welcome and About, in place of `dim-label` (`brand.py`) |
-| red | `#9a1f2e` fill, `#dc5a4a` text | Destructive buttons and error text (`brand.py`) |
-| error dot | `#cc2936` | Pill error dot (`theme.py` Palette, `default.toml`) |
-| recording red | `#e5484d` | Tray icon while recording (`scripts/generate_icons.py`) |
-| pill radius | fully round | Action buttons (Adwaita's `.pill`); maturity chips, 999px (`overlay_section.py`); the overlay pill, half its height (`theme.py`) |
+| ink-950 | `#08080a` | Default window and header-bar background |
+| ink-900 | `#0e0e11` | Pill and Default dialog background; app icon tile |
+| surface | bone 5% wash, 8% hairline | Cards and rows (flattened to opaque on popovers) |
+| bone | `#f2f0ea` | Default text, pill waveform and indicators, GTK accent |
+| bone-dim | `#cfccc3` | Secondary lines over hero artwork (in place of `dim-label`) |
+| red | `#9a1f2e` fill, `#dc5a4a` text | Destructive buttons and error text |
+| error dot | `#cc2936` | Overlay pill error indicator |
+| recording red | `#e5484d` | Tray icon while recording |
+| pill radius | fully round | Primary/ghost CTAs, status chips, and overlay pill caps |
 
-Software centres such as Flathub draw the store banner in vellum (`#dcc49c`) for
-light and sepia (`#614730`) for dark, set as the metainfo's `<branding>`. The app
-never uses them.
+Storefronts (such as Flathub) use vellum (`#dcc49c`) for light and sepia (`#614730`) for dark in the AppStream `<branding>` metadata; the application itself does not use them.
 
 ## GTK mapping (`src/quoth/brand.py`)
 
-- `@define-color accent_*` is redefined per colour scheme: bone on ink when
-  dark, ink on bone when light. Loaded at USER priority so a desktop's own
-  accent in `~/.config/gtk-4.0/gtk.css` (COSMIC writes one) does not win;
-  the user's `~/.config/quoth/style.css` has its own provider at USER+1 and
-  takes precedence.
-- In the dark scheme the named surface colours (`window_bg_color`,
-  `dialog_bg_color`, `view_bg_color`, `card_bg_color`, `popover_bg_color`) are
-  the ink scale, so structure reads as lift: page black, alert dialogs one step up,
-  cards a bone wash with a hairline (the site's `.surface`), popovers the same
-  flattened to opaque. The site is dark-only; the light scheme keeps Adwaita's
-  surfaces rather than dark text on ink.
-- The Default app skin supplies the dark palette and leaves light surfaces
-  native. Quoth derives standalone accent ink by constraining OKLab lightness
-  for the current scheme, so accent labels and native widgets agree. High
-  contrast retains native palettes. The overlay's `theme.toml` palette remains
-  separate.
-- Skin choices use static 40×40 logical-pixel ribbons: window, view, card and
-  accent bands are 14/10/10/6 pixels high. Resolved colours render solid;
-  native or derived roles use neutral patterned bands.
-- `button.quoth-cta` is the site's primary button: 48px pill, bold label,
-  32px side padding. One filled (`suggested-action`) per page at most; a
-  second takes `quoth-ghost`, the site's hairline pill.
-- `.quoth-keycap` is the Shortcut page's key: a bone-wash face on a 6px side
-  that sinks 4px when pressed, down at once and back up slowly.
-- The About hero is artwork: its text and the header bar over it stay bone in
-  both schemes. Its smoke fades into the dialog, across the hero when dark and
-  only below the text when light, so that text keeps its dark ground. The close
-  button carries an ink disc, so it reads once the hero has scrolled away.
-- The Welcome page's smoke darkens towards its foot, as the site's hero does,
-  under a veil over the rest, so its copy reads over the video's brightest
-  frames at any window size.
+- **Priority and overrides**: `brand.py` loads `@define-color accent_*` and surface overrides at `USER` priority so desktop theme overrides (such as COSMIC's GTK config) do not override Quoth's skin; the user's `~/.config/quoth/style.css` loads at `USER+1` and always wins.
+- **Dark ink scale vs light/high-contrast**: the Default skin supplies the dark ink palette (`window_bg_color`, `dialog_bg_color`, `view_bg_color`, `card_bg_color`, `popover_bg_color`), deriving contrasting standalone accent ink via OKLab lightness, while leaving light schemes and High Contrast on native Adwaita surfaces.
+- **Skins vs overlay themes**: app skins (`skin.py`) only recolour the desktop window; overlay colours and geometry (`theme.py` / `theme.toml`) remain separate. Skin selectors preview palette bands using resolved colours (or neutral patterned bands for native/derived roles).
+- **Buttons**: primary actions use a pill CTA styling (`suggested-action`), with at most one filled primary CTA per page; secondary actions take a hairline ghost style or standard Adwaita pills.
+- **Hero artwork contrast**: onboarding Welcome and About headers keep light bone typography in both light and dark schemes by pairing imagery with a dark gradient scrim beneath the text so contrast holds at any viewport size.
 
 ## Type
 
-GTK uses the system UI font (Cantarell or the desktop's choice), not Geist:
-the app should look native on the desktop it runs on. Hierarchy comes from
-Adwaita's `title-1`, `heading`, `dim-label` and `caption` classes, except over
-the photograph, where `dim-label`'s opacity would let the smoke through:
-secondary lines there take bone-dim.
+GTK uses the system UI font (Cantarell or the desktop's choice), not Geist: the app should look native on the desktop it runs on. Hierarchy comes from Adwaita's `title-1`, `heading`, `dim-label` and `caption` classes, except over hero artwork, where `dim-label` opacity would let the background bleed through (`bone-dim` is used there).
 
 ## Interaction and help
 
-`brand.pointer_cursors` owns the hand cursor policy for a widget tree; reapply it
-after rebuilding a shelf. Disabled actions and inert information rows keep the
-default cursor, even inside a hand-cursor parent. Expander headers share their
-row's cursor so title and arrow stay one action. The custom-drawn overlay owns
-its click-to-cancel cursor; idle overlays are click-through.
-
-In a Settings group every row has a tooltip or none has; the rows of a list,
-such as the models, themes or skins, count as the list's row. A tooltip on every
-row is this app's choice, where GNOME asks for few; GNOME's rule that a
-container's controls all have one or none keeps it consistent. A tooltip adds
-one fact about its own control that the title and subtitle do not show: what the
-feature is for, when it applies, exactly what changes, or a limit. It never
-repeats them, points at another control, states the opposite of the title or
-reassures about other behaviour, and it carries no status or warning. What a
-user needs in order to decide goes in the title, the subtitle, the group
-description or the privacy notice, since a tooltip shows on hover alone and a
-screen reader may not read it. Controls keep their accessible names; an expander
-row is named by its title, or its tooltip would name it. A tooltip is one short
-present-tense statement or phrase of at most 75 characters, without a full stop.
-Put it on the owning row so it shows over the row's switch, or a button without
-its own; a nested row needs its own, or it shows its expander's. An icon-only
-control's tooltip is a short name for its action. A control may say why it is
-unavailable, while it is. App-provided help uses sentence case, a project choice
-since GNOME capitalises label-like tooltips; native header help and
-author-supplied skin and theme descriptions stay as written, in plain text.
-Settings and onboarding share the error-report rows' help.
-Interface text, including the metainfo and settings schema, is in American
-English, as GNOME source strings are; documents stay British. A toast is a
-label: one sentence takes no full stop, and two sentences each take one. A
-notification's body is prose, so its sentences end with full stops; a status
-phrase such as "Recording…" does not, and a body that ends in a command leaves
-the command bare. Text shown both as a toast and as a notification is worded as
-a toast, and text also shown as a group description keeps its stop.
+- **Pointer cursors**: `brand.pointer_cursors` owns the hand-cursor policy (`pointer`) on interactive controls; disabled and inert information rows keep the default cursor, expander headers share one cursor across title and arrow, and idle overlays remain click-through (active overlays carry a click-to-cancel cursor).
+- **Settings tooltips**: every row in a Settings group either carries a tooltip or none does (lists count as their own group). Each tooltip adds one concise present-tense fact not already stated by the title or subtitle, without repeating them or hiding essential decision details inside hover-only text.
+- **Language**: UI labels, schema summaries and AppStream metadata use American English (matching GNOME conventions); documentation uses British English without em dashes.
+- **Toasts vs notifications**: toasts are short label-like phrases (one-sentence toasts omit a trailing full stop; multi-sentence toasts punctuate each sentence); notifications use prose sentences, except bare status phrases (`Recording...`) or trailing CLI commands.
+- **Accessibility**: keep explicit accessible names on icon-only buttons and custom controls, avoid relying on hover tooltips for critical guidance, and honour high-contrast and reduced-motion desktop preferences.
 
 ## Rules
 
