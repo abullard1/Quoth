@@ -8,38 +8,24 @@ Offline, private, instant voice dictation for Linux. Press a key, speak, text ap
 - **License**: GPL-3.0-or-later
 - **Python**: 3.12+ (use `uv` for all tooling)
 - **API floors**: GTK 4.14, libadwaita 1.5 and GLib 2.80, as on Ubuntu 24.04; use no newer GTK, libadwaita or GLib API without a version or feature check
+- **Scope**: A nested `AGENTS.md` closer to the files being edited wins over this root file; keep this file to what holds across the whole repository
 - **Contributing**: source setup, checks, test conventions, commit style and the AI-assistance rule are in `CONTRIBUTING.md`
-
-## Behaviour Rules
-
-- **Read before writing.** Open the file, understand existing code, then edit. Don't guess function signatures, class names, or import paths.
-- **Surgical changes only.** Touch only what the task requires. Don't refactor adjacent code, don't "fix" formatting elsewhere, don't add type hints to unchanged functions. If you see unrelated dead code, mention it; don't delete it.
-- **Goal-driven execution.** Transform every task into a verifiable goal. State success criteria before implementing; prove they're met after. Don't claim "it should work"; test it.
-- **Simplicity first.** Minimum code to solve the problem. No abstractions for single-use code, no future-proofing, no error handling for impossible states. Clean up unused imports you create, but don't purge pre-existing dead code.
-- **Verify, don't assume.** After changes run `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run lint-imports`, plus `uv run zizmor .` when a workflow changed; run `uv run quoth --help` when CLI args change. Without a display `uv run pytest` skips the widget tests; the headless suite command under Development Commands runs them.
-- **No guessing.** Don't invent API versions, package names, file paths, or config keys. Read the source to confirm.
-- **One file per scope.** A nested `AGENTS.md` closer to the files being edited wins over this root file; keep this root file to what is true everywhere in the repo.
 
 ## Security
 
 - **Never commit secrets**: no tokens, API keys, credentials, or signing keys in any file, commit message, or log. They are provisioned outside the repository (CI secrets, local keyrings).
-- **Keep this file public-safe.** It ships in the public repository: no internal hostnames, private paths, personal details, or unpublished release material here — internal working docs live in private files that are not exported.
+- **Keep this file public-safe.** It ships in the public repository: no internal hostnames, private paths, personal details, or unpublished release material here; internal working docs live in private files that are not exported.
 
 ## Architecture
 
-The import contract in `pyproject.toml` sorts every module into six tiers by meaning (entry, app, ui, services, adapters, domain), and `uv run lint-imports` enforces them; a new module goes into the tier its meaning names.
+The import contract in `pyproject.toml` sorts every module into six tiers (`entry`, `app`, `ui`, `services`, `adapters`, `domain`) and enforces them with `uv run lint-imports`; `pyproject.toml` and module docstrings are the live module map. Core boundaries:
 
-- **Composition**: `app.py` (`QuothApp`) builds every component and owns their lifecycle. `recording.py` (`RecordingController`) runs the `IDLE` → `RECORDING` → `TRANSCRIBING` → `IDLE` state machine and reaches the main thread through the injected scheduler (`scheduler.py`).
-- **Triggers**: `listener.py` (native evdev hotkey), `portal_shortcuts.py` (the Flatpak's GlobalShortcuts session) and `ipc.py` (`quoth --toggle` and the `dev.quoth.Dictation1` D-Bus interface, which never carries text) report presses; `trigger.py` is the one rule for what each does. `hotkey_capture.py` previews a native key in GTK.
-- **Dictation**: `audio.py` (`AudioPipeline`, GStreamer capture), `whisper.py` (whisper.cpp through ctypes and the C shim), `typer.py` (clipboard paste).
-- **Settings**: `data/dev.quoth.Quoth.gschema.xml` is the one source of keys, defaults and valid values, and `config.py` (`Config`) reads and writes them. `settings.py` holds `ModelSwitcher`, which owns the app's one pending model or device change (it may need a download first), and `SettingsController`, the window's logic over it; `settings_window.py`, with its `engine_section.py`, `overlay_section.py` and `skin_section.py` groups, is the GTK view.
-- **Devices and models**: `hardware.py` detects devices, `accel.py` (`backend_for`) is the one source of what `CPU`/`GPU`/`NPU` mean, and everything else derives (never re-test `device in (...)`). `resolution.py` composes the effective backend from detection, the accel rules, the model catalog (`models.py`) and `calibration.py`'s measured per-model ranking; `app.py`, `settings.py`, `engine_section.py`, `onboarding.py`, `try_it.py` and `prepare.py` use it. `benchmark_dialog.py` is the staged view of a calibration run. `downloads.py` is the one owner of model downloads.
-- **Overlay**: `overlay.py` shows the themed pill or, with the `overlay-style` key set to `orb`, the audio-reactive orb; `pill_view.py` is the theme-aware view layer (`draw_pill`, the preview widgets, `OrbDirector`) over the `pill_render.py` and `orb.py` leaves. `presentation.py` decides whether the overlay can show; `tray.py` serves the tray icon over D-Bus.
-- **Onboarding**: `onboarding.py`, with the guided dictation in `try_it.py`, the calibration step in `optimize.py`, its background in `backdrop.py` and its motion in `animation.py` over the `lottie.py`/ThorVG seam. It has no model step: the default model starts downloading as it opens.
-- **Appearance**: overlay themes live in `theme.py`. App skins are separate and colour-only: `skin.py` owns their format, presets and shelf, `brand.py` renders the one CSS provider, and `skin_runtime.py` reloads the active skin when its file changes.
-- **Privacy edges**: `crash_reports.py` (opt-in) is the only module that touches `sentry_sdk`; `log.py` keeps transcript text off disk.
+- **Composition and state**: `app.py` composes the application and owns component lifecycle; `recording.py` (`RecordingController`) owns the `IDLE` → `RECORDING` → `TRANSCRIBING` → `IDLE` state machine.
+- **Single sources of truth**: `data/dev.quoth.Quoth.gschema.xml` owns settings keys, defaults and valid values; `accel.py` defines what `CPU`/`GPU`/`NPU` backends mean; `models.py` owns the model catalogue; `downloads.py` owns model downloads.
+- **Appearance**: overlay themes live in `theme.py` (Pill or Orb layouts), while app skins are colour-only and separate (`skin.py` and `brand.py`).
+- **Privacy boundaries**: `crash_reports.py` (opt-in) is the only module permitted to touch `sentry_sdk`, and `log.py` keeps transcript text off disk.
 
-**Flow**: hotkey press or release (evdev, the GlobalShortcuts portal, `quoth --toggle`, or a script's `--start`/`--stop`) → `trigger.hotkey_action`, applied by `app._on_hotkey` → `RecordingController` → `AudioPipeline` (`pulsesrc`, else `pipewiresrc`, else `autoaudiosrc`) → float32 16 kHz mono buffer → whisper.cpp on a background thread, cooperatively cancellable → cleaned text → `typer.py`: `wl-copy`, then a Shift+Insert chord from ydotool or wtype.
+**Flow**: hotkey press/release (native evdev, Flatpak GlobalShortcuts portal, or `quoth` CLI / D-Bus) → shared trigger rule → `RecordingController` → `AudioPipeline` (PulseAudio/PipeWire float32 16 kHz mono) → `whisper.cpp` on a background thread (cancellable) → clipboard paste (`wl-copy` + `Shift+Insert` via `ydotool` or `wtype`).
 
 ## Critical Invariants (DO NOT BREAK)
 
@@ -75,13 +61,15 @@ These guard against crashes, memory corruption and lost dictations.
 
 ## Development Commands
 
+Run `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run lint-imports` after code changes (plus `uv run zizmor .` when a workflow changes, and `uv run quoth --help` when CLI flags change):
+
 ```bash
 uv run quoth                       # Run the app
 uv run quoth -s                    # Open the Settings window
 uv run quoth -q                    # Quit running instance
 uv run quoth -t                    # Toggle dictation, starting Quoth if needed
 uv run quoth --status              # Print the running instance's state (also --start/--stop/--cancel)
-uv run pytest                      # Run the test suite
+uv run pytest                      # Run the test suite (skips widget tests without a display)
 dbus-run-session -- xvfb-run -a env GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=test \
   uv run --locked --group icons pytest -ra --cov=quoth  # The headless suite as CI runs it
 uv run ruff check .                # Lint (matches CI)
