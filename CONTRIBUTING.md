@@ -186,45 +186,14 @@ flowchart TB
     style dictation fill:none
 ```
 
-- `app.py` composes the application and owns its lifecycle: a component that
-  needs stopping is started in `do_startup`, `_start` or `_finish_activation` and
-  stopped in `do_shutdown`, inputs first, then the engine, then what the engine
-  feeds. `recording.py` owns the `IDLE -> RECORDING -> TRANSCRIBING -> IDLE`
-  state machine.
-- [Architecture](AGENTS.md#architecture) in AGENTS.md names the main modules,
-  and every module's docstring states its job. Error reports carry only what
-  [PRIVACY.md](PRIVACY.md#error-reports) lists.
-- A config-key change starts in `data/dev.quoth.Quoth.gschema.xml`, the one
-  source of keys, defaults and valid values. Its Settings row follows the key
-  through `Config.bind`, its section's `sync` or the window's
-  `_on_config_changed`. A running Quoth applies a change at once, so the handler
-  in `app.py` that applies changed keys, `_on_setting_changed`, needs a branch
-  unless the key is read at use time; the `live_config` fixture in
-  `tests/test_app.py` tests that branch. A key of a type that `config._PY_TYPES`
-  does not map yet needs that mapping too.
-- Everything [Stable interfaces](SUPPORT.md#stable-interfaces) in SUPPORT.md lists
-  stays compatible: add to it, but never rename, retype or narrow it.
-- An inference device needs detection in `hardware.available_devices`; an entry
-  in `accel.py` with its fallbacks, its place in the automatic order and its
-  handling in `resolve_backend`; and a `device` choice in the schema. The Device
-  row lists whatever detection returns. A device that is neither Vulkan nor
-  OpenVINO also needs a new `AccelBackend` knob that `whisper.py` applies.
-  Onboarding names devices too: a new one needs a cell in
-  `animation._FIELD_HARDWARE`, and `resolution.provision_for` and `try_it.py`
-  choose among the existing ones by name.
-- A theme key touches `theme.py`, the code that draws it (`pill_view.draw_pill`
-  or the orb), `src/quoth/themes/default.toml` and the theme table in
-  [SUPPORT.md](SUPPORT.md#customise-quoth). A new `[colors]` key also needs a
-  value in each other preset in `src/quoth/themes/`, or it shows Default's
-  colour there.
-- The C shim `lib/whisper_helper.c` and its ctypes signatures in `whisper.py`
-  change together, and `make build` (or `lib/build_helper.sh` alone, against an
-  existing whisper.cpp build) rebuilds the shim.
-- Icons and earcons are generated, never hand-edited. Icons come from
-  `data/icons/src/`: rerun
-  `uv run --group icons python scripts/generate_icons.py`.
-  The earcons in `src/quoth/sounds/` are synthesised by
-  `scripts/generate_sounds.py`: rerun `uv run python scripts/generate_sounds.py`.
+- `app.py` composes the application and owns component lifecycle (starting inputs, engine and dependents cleanly, and tearing down in reverse order on shutdown). `recording.py` owns the `IDLE -> RECORDING -> TRANSCRIBING -> IDLE` state machine.
+- [Architecture](AGENTS.md#architecture) in AGENTS.md outlines the layers and key ownership seams; module docstrings and `pyproject.toml` hold the live module map. Error reports carry only what [PRIVACY.md](PRIVACY.md#error-reports) lists.
+- A config-key change starts in `data/dev.quoth.Quoth.gschema.xml`, the single source of keys, defaults and valid values, and flows through `Config` and its Settings UI row. Running instances must apply config changes immediately (verified in `tests/test_app.py`).
+- Everything [Stable interfaces](SUPPORT.md#stable-interfaces) in SUPPORT.md lists stays backwards-compatible: add to it, but never rename, retype or narrow it.
+- Adding an inference device spans hardware detection, backend resolution/fallback rules (`accel.py`), schema choices, and onboarding backend presentation.
+- Adding an overlay theme key spans theme loading (`theme.py`), overlay drawing (Pill or Orb views), bundled theme presets under `src/quoth/themes/`, and the table in [SUPPORT.md](SUPPORT.md#customise-quoth).
+- The C shim (`lib/whisper_helper.c`) and ctypes bindings (`whisper.py`) change together and rebuild via `make build`.
+- Icons and earcons are generated, never hand-edited. Regenerate icons from `data/icons/src/` with `uv run --group icons python scripts/generate_icons.py`, and earcons in `src/quoth/sounds/` with `uv run python scripts/generate_sounds.py`.
 
 Every change keeps the
 [critical invariants](AGENTS.md#critical-invariants-do-not-break) and
