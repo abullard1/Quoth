@@ -23,6 +23,10 @@
 </p>
 
 <p align="center">
+  <a href="https://itsfoss.com/quoth-review/"><img src=".github/media/itsfoss-local-ai-pick.svg" alt="It's FOSS Local AI Pick" width="240"></a>
+</p>
+
+<p align="center">
   <a href="#install">Install</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#privacy">Privacy</a> ·
@@ -182,6 +186,8 @@ Whisper models. It pastes with [wl-clipboard](https://github.com/bugaevc/wl-clip
 [ydotool](https://github.com/ReimuNotMoe/ydotool) and
 [wtype](https://github.com/atx/wtype), and detects speech with
 [Silero VAD](https://github.com/snakers4/silero-vad).
+
+Reviewed by [It's FOSS](https://itsfoss.com/quoth-review/).
 
 ## License
 
