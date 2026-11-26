@@ -6,10 +6,12 @@
 import pytest
 
 from quoth.keynames import (
+    format_hotkey,
     format_key,
     hotkey_risk,
     hotkey_warning_text,
     printable_label,
+    split_hotkey,
 )
 
 
@@ -32,6 +34,10 @@ class TestFormatKey:
     )
     def test_label(self, key, label):
         assert format_key(key) == label
+
+    def test_modifier_chords_have_a_stable_display_order(self):
+        assert split_hotkey("SHIFT+CTRL+KEY_F13") == (("CTRL", "SHIFT"), "KEY_F13")
+        assert format_hotkey("SHIFT+CTRL+KEY_F13") == "Ctrl+Shift+F13"
 
 
 class TestHotkeyRisk:
@@ -74,6 +80,9 @@ class TestHotkeyRisk:
             "KEY_102ND",
         ):
             assert hotkey_risk(key) == "typing", key
+
+    def test_chords_keep_the_main_keys_risk(self):
+        assert hotkey_risk("CTRL+KEY_A") == "typing"
 
     def test_bare_modifiers_are_flagged(self):
         for key in ("KEY_LEFTCTRL", "KEY_RIGHTSHIFT", "KEY_LEFTMETA"):

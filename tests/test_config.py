@@ -53,6 +53,12 @@ class TestSchema:
         assert not (c.onboarding_complete or c.calibration_offered)
         assert not c.portal_shortcut_enabled
 
+    def test_modifier_chords_fit_the_hotkey_setting(self):
+        c = Config()
+        c.hotkey = "CTRL+KEY_F13"
+
+        assert c.hotkey == "CTRL+KEY_F13"
+
     def test_mode_choices_are_the_trigger_modes(self):
         assert _choices("mode") == list(MODES)
 

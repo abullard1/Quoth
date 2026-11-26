@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Samuel Ruairí Bullard
 
-"""Human-readable names and hotkey classification for evdev key tokens.
+"""Names, parsing and risk classification for evdev keys and modifier chords.
 
-Shared by Settings and onboarding, so a hotkey reads the same in both. The layout code
-point comes from Gdk in `hotkey_capture`, which keeps this module free of GTK.
+Shared by Settings, onboarding and the native listener. Layout-specific key glyphs come
+from Gdk in `hotkey_capture`, which keeps this module free of GTK.
 """
 
 import unicodedata
@@ -55,6 +55,24 @@ _DISPLAY_NAMES: dict[str, str] = {
     "RIGHTBRACE": "]",
 }
 
+HOTKEY_MODIFIER_KEYS = {
+    "CTRL": frozenset({"KEY_LEFTCTRL", "KEY_RIGHTCTRL"}),
+    "ALT": frozenset({"KEY_LEFTALT", "KEY_RIGHTALT"}),
+    "ALTGR": frozenset({"KEY_RIGHTALT"}),
+    "SHIFT": frozenset({"KEY_LEFTSHIFT", "KEY_RIGHTSHIFT"}),
+    "SUPER": frozenset({"KEY_LEFTMETA", "KEY_RIGHTMETA"}),
+    "META": frozenset({"KEY_LEFTMETA", "KEY_RIGHTMETA"}),
+}
+HOTKEY_MODIFIER_ORDER = tuple(HOTKEY_MODIFIER_KEYS)
+_MODIFIER_LABELS = {
+    "CTRL": "Ctrl",
+    "ALT": "Alt",
+    "ALTGR": "AltGr",
+    "SHIFT": "Shift",
+    "SUPER": "Super",
+    "META": "Meta",
+}
+
 
 def format_key(key: str) -> str:
     """Return the display name of an evdev token (`KEY_LEFTCTRL` -> "Ctrl (Left)").
@@ -63,6 +81,33 @@ def format_key(key: str) -> str:
     """
     display = key.removeprefix("KEY_")
     return _DISPLAY_NAMES.get(display, display)
+
+
+def split_hotkey(hotkey: str) -> tuple[tuple[str, ...], str]:
+    """Return the canonical modifier names and evdev key token of a binding."""
+    *modifiers, key = hotkey.split("+")
+    if not key.startswith(("KEY_", "BTN_")):
+        raise ValueError(f"Unknown key: {key}")
+    if len(set(modifiers)) != len(modifiers) or any(
+        modifier not in HOTKEY_MODIFIER_KEYS for modifier in modifiers
+    ):
+        raise ValueError(f"Invalid hotkey modifiers: {hotkey}")
+    return tuple(
+        modifier for modifier in HOTKEY_MODIFIER_ORDER if modifier in modifiers
+    ), key
+
+
+def format_hotkey(hotkey: str, key_label: str | None = None) -> str:
+    """Format a stored key or modifier chord for display."""
+    modifiers, key = split_hotkey(hotkey)
+    parts = [_MODIFIER_LABELS[modifier] for modifier in modifiers]
+    parts.append(key_label if key_label is not None else format_key(key))
+    return "+".join(parts)
+
+
+def is_modifier_key(key: str) -> bool:
+    """Whether an evdev token names one of the physical modifier keys."""
+    return any(key in keys for keys in HOTKEY_MODIFIER_KEYS.values())
 
 
 # Keys pressed during ordinary input: a global hotkey on one would fire on every
@@ -97,6 +142,7 @@ def hotkey_risk(key: str) -> str | None:
     "paste" is Insert, part of the Shift+Insert paste. `hotkey_warning_text` gives the
     layout-aware caution.
     """
+    _modifiers, key = split_hotkey(key)
     token = key.removeprefix("KEY_")
     if token in _MODIFIER_KEYS:
         return "modifier"

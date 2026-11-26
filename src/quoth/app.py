@@ -767,7 +767,7 @@ class QuothApp(Adw.Application):
         )
         self._toast_or_notice(
             "quoth-keyboard",
-            f"The saved dictation key isn't recognized. Using {format_key(fallback)} "
+            f"The saved dictation shortcut isn't recognized. Using {format_key(fallback)} "
             "instead.",
         )
         self._config.hotkey = fallback

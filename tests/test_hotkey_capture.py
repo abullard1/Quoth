@@ -4,6 +4,7 @@
 """Tests for `quoth.hotkey_capture`, whose widgets need a display."""
 
 import os
+from unittest.mock import Mock
 
 import pytest
 from gi.repository import Gdk, Gtk
@@ -21,6 +22,49 @@ def test_a_safe_key_is_selected_by_its_evdev_token(display):
     capture._on_key_pressed(None, Gdk.KEY_F13, 191, 0)
 
     assert selected == ["KEY_F13"]
+
+
+def test_a_modifier_chord_maps_to_a_stable_evdev_binding():
+    from quoth import hotkey_capture
+
+    assert (
+        hotkey_capture.hotkey_for_key_event(
+            191, Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK
+        )
+        == "CTRL+SHIFT+KEY_F13"
+    )
+
+
+def test_capture_handler_selects_a_modifier_chord_without_a_display():
+    from quoth import hotkey_capture
+
+    selected = []
+    capture = object.__new__(hotkey_capture._HotkeyCapture)
+    capture._listening = True
+    capture._held_modifier_tokens = set()
+    capture._pending_modifier_token = None
+    capture._dialog = Mock()
+    capture._on_selected = selected.append
+
+    assert capture._on_key_pressed(None, Gdk.KEY_Control_L, 37, 0)
+    assert capture._on_key_pressed(
+        None, Gdk.KEY_F13, 191, Gdk.ModifierType.CONTROL_MASK
+    )
+
+    assert selected == ["CTRL+KEY_F13"]
+    capture._dialog.close.assert_called_once()
+
+
+def test_a_modifier_chord_is_captured_with_its_physical_key(display):
+    from quoth import hotkey_capture
+
+    selected = []
+    capture = hotkey_capture._HotkeyCapture(None, selected.append)
+    capture._show_prompt()
+    capture._on_key_pressed(None, Gdk.KEY_Control_L, 37, 0)
+    capture._on_key_pressed(None, Gdk.KEY_F13, 191, Gdk.ModifierType.CONTROL_MASK)
+
+    assert selected == ["CTRL+KEY_F13"]
 
 
 def test_a_risky_key_is_selected_only_once_confirmed(display):

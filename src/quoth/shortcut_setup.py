@@ -164,17 +164,17 @@ def portal_presentation(owner) -> PortalPresentation:
         )
     if owner.status == "needs-key":
         return PortalPresentation(
-            "Choose a dictation key",
+            "Choose a dictation shortcut",
             "Your desktop added the shortcut without a key. "
             + _in_key_settings("You can also assign one")
             if owner.version >= 2
             else _in_key_settings("Assign it a key"),
-            action="Choose a key" if owner.version >= 2 else None,
+            action="Choose a shortcut" if owner.version >= 2 else None,
             can_configure=owner.version >= 2,
         )
     if owner.status == "unavailable":
         return PortalPresentation(
-            "Bind a dictation key",
+            "Bind a dictation shortcut",
             "Tap your shortcut to start and stop dictation. " + setup_steps(),
             manual=True,
         )
@@ -185,7 +185,7 @@ def portal_presentation(owner) -> PortalPresentation:
             None,
         ),
         "unbound": (
-            "Set up your dictation key",
+            "Set up your dictation shortcut",
             "Choose a global shortcut through your desktop.",
             "Set up shortcut",
         ),
@@ -201,7 +201,7 @@ def portal_presentation(owner) -> PortalPresentation:
         ),
         "closed": (
             "Shortcut needs setup",
-            "The desktop shortcut session closed. Set it up again to dictate with a key.",
+            "The desktop shortcut session closed. Set it up again to dictate with a shortcut.",
             "Set up shortcut",
         ),
         "error": (

@@ -122,6 +122,10 @@ records nothing: choose **Tap to start and stop** for it. If a portal is
 unavailable, bind the toggle command in your desktop's keyboard settings; that
 shortcut toggles and cannot hold.
 
+Native shortcut capture accepts a single key or a modifier chord, such as
+Ctrl+F13. Hold the modifier keys and press the main key while the capture dialog
+is open.
+
 | Action | Command |
 |---|---|
 | Open Settings | `quoth --settings` |

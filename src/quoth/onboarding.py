@@ -824,7 +824,7 @@ class OnboardingAssistant:
         cap.add_overlay(self._halo)
         cap.set_margin_top(24 - HALO_REACH_PX)
 
-        column = brand.status_column(cap, "Your dictation key", "")
+        column = brand.status_column(cap, "Your dictation shortcut", "")
         cap.set_margin_bottom(0)  # the halo's room is the gap to the title
         self._shortcut_lead = column.get_last_child()
 
@@ -833,7 +833,7 @@ class OnboardingAssistant:
         modes.set_margin_top(12)
         column.append(modes)
 
-        change = Gtk.Button(label="Pick a different key", halign=Gtk.Align.CENTER)
+        change = Gtk.Button(label="Pick a different shortcut", halign=Gtk.Align.CENTER)
         # Flat, so Continue stays the only primary action on the page.
         change.add_css_class("flat")
         change.set_margin_top(12)
@@ -878,11 +878,13 @@ class OnboardingAssistant:
         self._reset_shortcut_demo()
         return page
 
-    def _is_hotkey(self, keycode: int) -> bool:
-        return hotkey_capture.token_for_keycode(keycode) == self._config.hotkey
+    def _is_hotkey(self, keycode: int, state) -> bool:
+        return hotkey_capture.hotkey_matches_key_event(
+            self._config.hotkey, keycode, state
+        )
 
-    def _on_shortcut_key_pressed(self, _c, _keyval, keycode: int, _state) -> bool:
-        if not self._is_hotkey(keycode):
+    def _on_shortcut_key_pressed(self, _c, _keyval, keycode: int, state) -> bool:
+        if not self._is_hotkey(keycode, state):
             return False
         if self._key_down:
             return True  # the key repeating while held
@@ -892,7 +894,9 @@ class OnboardingAssistant:
         return True
 
     def _on_shortcut_key_released(self, _c, _keyval, keycode: int, _state) -> None:
-        if not self._is_hotkey(keycode):
+        if not self._key_down or not hotkey_capture.hotkey_component(
+            self._config.hotkey, keycode
+        ):
             return
         self._key_down = False
         self._keycap.remove_css_class("pressed")
@@ -961,7 +965,7 @@ class OnboardingAssistant:
         logger.debug("Onboarding: mode set to '{}'", mode)
 
     def _on_hotkey_chosen(self, name: str) -> None:
-        """Persist the captured key, update the keycap and restart the demo.
+        """Persist the captured shortcut, update the keycap and restart the demo.
 
         The listener reads `config.hotkey` when it starts in `_finish_activation`, so no
         live restart is needed.
@@ -973,7 +977,7 @@ class OnboardingAssistant:
 
     def _build_shortcut_sandbox(self) -> Adw.NavigationPage:
         status = Adw.StatusPage(
-            title="Bind a key to dictate",
+            title="Bind a shortcut to dictate",
             description=shortcut_setup.setup_steps(),
         )
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -981,7 +985,7 @@ class OnboardingAssistant:
         self._append_open_settings(box)
 
         self._shortcut_status = Gtk.Label(
-            label="Waiting: press your new key to test it…", wrap=True
+            label="Waiting: press your new shortcut to test it…", wrap=True
         )
         self._shortcut_status.add_css_class("dim-label")
         box.append(self._shortcut_status)
@@ -1080,7 +1084,7 @@ class OnboardingAssistant:
             self._shortcut_status.set_visible(info.ready or info.manual)
             if not self._shortcut_confirmed and (info.ready or info.manual):
                 self._shortcut_status.set_label(
-                    "Waiting: press your new key to test it…"
+                    "Waiting: press your new shortcut to test it…"
                 )
         self._refresh_ready()
 

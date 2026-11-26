@@ -16,6 +16,7 @@ from quoth.listener import (
     ListenerState,
     evdev_available,
     find_keyboards,
+    find_keyboards_for_keys,
     key_name_for_scancode,
     keyboard_available,
     scancode_for_key_name,
@@ -158,6 +159,20 @@ class TestFindKeyboards:
         mouse.close.assert_called_once()
         laptop.close.assert_not_called()
         external.close.assert_not_called()
+
+    @patch("quoth.listener.evdev")
+    def test_chord_discovery_includes_modifier_and_main_key_devices(self, mock_evdev):
+        modifier, main, unrelated = self._devices(
+            mock_evdev, ["Modifier", "Main key", "Unrelated"]
+        )
+        modifier.capabilities.return_value = {ecodes.EV_KEY: [ecodes.KEY_LEFTCTRL]}
+        unrelated.capabilities.return_value = {ecodes.EV_KEY: [ecodes.KEY_A]}
+
+        assert find_keyboards_for_keys({ecodes.KEY_LEFTCTRL, ecodes.KEY_F13}) == [
+            modifier,
+            main,
+        ]
+        unrelated.close.assert_called_once()
 
     @patch("quoth.listener.evdev")
     def test_a_device_without_the_key_is_not_a_keyboard(self, mock_evdev):
@@ -319,6 +334,69 @@ class TestDispatch:
         listener._handle_event(InputEvent(0, 0, ecodes.EV_MSC, 0, 0))
 
         assert started == []
+
+    def test_modifier_chord_can_span_keyboards_and_releases_on_modifier_up(self):
+        edges = []
+        listener = KeyListener(
+            hotkey="CTRL+KEY_F13",
+            on_press=lambda: edges.append("down"),
+            on_release=lambda: edges.append("up"),
+        )
+        _accept(listener)
+        modifiers, function_key = object(), object()
+
+        listener._handle_event(_press(ecodes.KEY_LEFTCTRL), modifiers)
+        listener._handle_event(_press(ecodes.KEY_F13), function_key)
+        assert edges == ["down"]
+
+        listener._handle_event(_release(ecodes.KEY_LEFTCTRL), modifiers)
+        assert edges == ["down", "up"]
+
+    def test_modifier_chord_does_not_fire_without_its_modifier(self):
+        started = []
+        listener = KeyListener(
+            hotkey="CTRL+KEY_F13", on_press=lambda: started.append(True)
+        )
+        _accept(listener)
+
+        listener._handle_event(_press(ecodes.KEY_F13))
+
+        assert started == []
+
+    def test_modifier_chord_ignores_extra_modifiers(self):
+        edges = []
+        listener = KeyListener(
+            hotkey="CTRL+KEY_F13",
+            on_press=lambda: edges.append("down"),
+            on_release=lambda: edges.append("up"),
+        )
+        _accept(listener)
+        source = object()
+
+        listener._handle_event(_press(ecodes.KEY_LEFTCTRL), source)
+        listener._handle_event(_press(ecodes.KEY_LEFTSHIFT), source)
+        listener._handle_event(_press(ecodes.KEY_F13), source)
+        assert edges == []
+
+        listener._handle_event(_release(ecodes.KEY_LEFTSHIFT), source)
+        assert edges == []
+        listener._handle_event(_release(ecodes.KEY_F13), source)
+        listener._handle_event(_press(ecodes.KEY_F13), source)
+        assert edges == ["down"]
+        listener._handle_event(_release(ecodes.KEY_LEFTCTRL), source)
+
+        assert edges == ["down", "up"]
+
+    def test_quick_modifier_release_does_not_mark_the_main_key_unholdable(self):
+        listener = KeyListener(hotkey="CTRL+KEY_F13")
+        _accept(listener)
+        source = object()
+
+        listener._handle_event(_press(ecodes.KEY_LEFTCTRL), source)
+        listener._handle_event(_press(ecodes.KEY_F13), source)
+        listener._handle_event(_release(ecodes.KEY_LEFTCTRL, usec=10_000), source)
+
+        assert not listener.unholdable
 
     def test_autorepeat_keeps_a_held_press(self):
         # The kernel repeats a held key as value 2: neither a press nor a release.

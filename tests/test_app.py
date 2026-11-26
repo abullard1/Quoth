@@ -384,7 +384,7 @@ class TestListenerLifecycle:
         app._notice.assert_called_once_with(
             "quoth-keyboard",
             "Quoth",
-            "The saved dictation key isn't recognized. Using Pause instead.",
+            "The saved dictation shortcut isn't recognized. Using Pause instead.",
             low=False,
         )
         assert [c.args for c in app._listener.rebind.call_args_list] == [

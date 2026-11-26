@@ -260,15 +260,13 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._recording_group = group
         page.add(group)
 
-        self._add_mode_row(group, "How the dictation key controls recording")
+        self._add_mode_row(group, "How the dictation shortcut controls recording")
 
         hotkey_row = Adw.ActionRow(
-            title="Dictation key",
+            title="Dictation shortcut",
             activatable=True,
             use_markup=False,
-            tooltip_text=(
-                "The press also reaches the app in focus, as a normal key press"
-            ),
+            tooltip_text="The keys in the shortcut also reach the focused app.",
         )
         # A keycap can be "<" or "&": set it once markup is off, or construction
         # parses it as markup.
@@ -810,14 +808,14 @@ class SettingsWindow(Adw.PreferencesWindow):
             label.add_css_class("dim-label")
 
     def _on_hotkey_row_activated(self, row):
-        """Capture a new hotkey in the shared GTK dialog, then apply its evdev token.
+        """Capture a shortcut in the shared GTK dialog, then apply its evdev binding.
 
         Search and the listener pause until the dialog closes: typeahead search's
         root key handler would swallow the first keystroke, and the listener reads
         evdev below GTK, so the chosen key would also fire the current hotkey.
         """
         if self._is_idle is not None and not self._is_idle():
-            self.show_toast("Finish dictating before changing the key")
+            self.show_toast("Finish dictating before changing the shortcut")
             return
         self.set_search_enabled(False)
         if self._on_hotkey_capture:
@@ -833,11 +831,11 @@ class SettingsWindow(Adw.PreferencesWindow):
             self._on_hotkey_capture(False)
 
     def _apply_hotkey(self, name: str) -> None:
-        """Persist the evdev token `name` and toast the key now in force.
+        """Persist the evdev binding `name` and toast the shortcut now in force.
 
         The app rebinds its listener on the write and restores the default if the key
         is rejected, so the toast reads the setting back.
         """
         self._config.hotkey = name
         label = hotkey_capture.hotkey_label(self._config.hotkey)
-        self.show_toast(f"Dictation key set to {label}")
+        self.show_toast(f"Dictation shortcut set to {label}")

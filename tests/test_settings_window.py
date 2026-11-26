@@ -287,7 +287,7 @@ def test_native_shortcut_remains_without_portal(settings_window):
     config.hotkey = "KEY_F13"
     dialog = settings_window(config, listener_state=ListenerState.AVAILABLE)
 
-    assert dialog._hotkey_row.get_title() == "Dictation key"
+    assert dialog._hotkey_row.get_title() == "Dictation shortcut"
     assert dialog._portal_shortcut_row is None
     assert dialog._recording_group.get_visible()
     assert not dialog._shortcut_group.get_visible()
@@ -361,7 +361,7 @@ def test_rows_write_their_setting(settings_window, find_widget):
     assert not config.launch_at_login and not config.keep_warm
     assert (config.keep_warm_timeout, config.mode) == (90, "push-to-hold")
     assert dialog._hotkey_row.get_subtitle() == "F14"
-    toast.assert_called_once_with("Dictation key set to F14")
+    toast.assert_called_once_with("Dictation shortcut set to F14")
 
 
 def test_number_rows_span_the_schema_range(settings_window, find_widget):

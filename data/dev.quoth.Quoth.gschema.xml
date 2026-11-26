@@ -10,7 +10,7 @@
         <choice value="push-to-hold"/>
       </choices>
       <default>'tap-to-toggle'</default>
-      <summary>Dictation key behavior</summary>
+      <summary>Dictation shortcut behavior</summary>
       <description>"tap-to-toggle" starts and stops recording with one press each; "push-to-hold" records while the key is held.</description>
     </key>
 
@@ -18,8 +18,8 @@
       <!-- The listener reads evdev passively and the key still reaches the focused
            app, so the default is an inert key: Pause is unbound on GNOME, KDE and COSMIC. -->
       <default>'KEY_PAUSE'</default>
-      <summary>Native dictation key</summary>
-      <description>The evdev key name that triggers dictation outside Flatpak.</description>
+      <summary>Native dictation shortcut</summary>
+      <description>An evdev key name, optionally with modifiers, that triggers dictation outside Flatpak.</description>
     </key>
 
     <key name="portal-shortcut-enabled" type="b">
