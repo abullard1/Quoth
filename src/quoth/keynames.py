@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Samuel Ruairí Bullard
 
-"""Human-readable names and hotkey classification for evdev key tokens.
+"""Names, parsing and risk classification for evdev keys and modifier chords.
 
-Shared by Settings and onboarding, so a hotkey reads the same in both. The layout code
-point comes from Gdk in `hotkey_capture`, which keeps this module free of GTK.
+Shared by Settings, onboarding and the native listener. The layout code point comes
+from Gdk in `hotkey_capture`, which keeps this module free of GTK.
 """
 
 import unicodedata
@@ -55,6 +55,27 @@ _DISPLAY_NAMES: dict[str, str] = {
     "RIGHTBRACE": "]",
 }
 
+HOTKEY_MODIFIERS: dict[str, frozenset[str]] = {
+    "CTRL": frozenset({"KEY_LEFTCTRL", "KEY_RIGHTCTRL"}),
+    "ALT": frozenset({"KEY_LEFTALT", "KEY_RIGHTALT"}),
+    "SHIFT": frozenset({"KEY_LEFTSHIFT", "KEY_RIGHTSHIFT"}),
+    "SUPER": frozenset({"KEY_LEFTMETA", "KEY_RIGHTMETA"}),
+}
+_MODIFIER_LABELS = {
+    "CTRL": "Ctrl",
+    "ALT": "Alt",
+    "SHIFT": "Shift",
+    "SUPER": "Super",
+}
+_MODIFIER_FOR_TOKEN = {
+    token: name for name, tokens in HOTKEY_MODIFIERS.items() for token in tokens
+}
+
+
+def modifier_for_token(token: str) -> str | None:
+    """Return the canonical modifier group name for an evdev token, if any."""
+    return _MODIFIER_FOR_TOKEN.get(token)
+
 
 def format_key(key: str) -> str:
     """Return the display name of an evdev token (`KEY_LEFTCTRL` -> "Ctrl (Left)").
@@ -65,15 +86,36 @@ def format_key(key: str) -> str:
     return _DISPLAY_NAMES.get(display, display)
 
 
+def split_hotkey(hotkey: str) -> tuple[tuple[str, ...], str]:
+    """Return canonical modifier names and main evdev key token of a binding."""
+    *raw_mods, key = hotkey.split("+")
+    if not key.startswith(("KEY_", "BTN_")):
+        raise ValueError(f"Unknown key: {key}")
+    if len(set(raw_mods)) != len(raw_mods) or any(
+        modifier not in HOTKEY_MODIFIERS for modifier in raw_mods
+    ):
+        raise ValueError(f"Invalid hotkey modifiers: {hotkey}")
+    if raw_mods and modifier_for_token(key) is not None:
+        raise ValueError(f"Invalid hotkey: {hotkey}")
+    return tuple(m for m in HOTKEY_MODIFIERS if m in raw_mods), key
+
+
+def format_hotkey(hotkey: str, key_label: str | None = None) -> str:
+    """Format a stored evdev key or modifier chord for display."""
+    try:
+        modifiers, key = split_hotkey(hotkey)
+    except ValueError:
+        return key_label if key_label is not None else format_key(hotkey)
+    parts = [_MODIFIER_LABELS[modifier] for modifier in modifiers]
+    parts.append(key_label if key_label is not None else format_key(key))
+    return "+".join(parts)
+
+
 # Keys pressed during ordinary input: a global hotkey on one would fire on every
 # keystroke (typing keys) or every shortcut (bare modifiers). The listener reads keys
 # without taking them, so a key that acts in the focused app still does so on every
 # press. Everything not listed (F13 to F24, Pause, media keys) is a safe hotkey, so an
 # unknown token defaults to safe.
-_MODIFIER_KEYS = frozenset(
-    {"LEFTCTRL", "RIGHTCTRL", "LEFTALT", "RIGHTALT",
-     "LEFTSHIFT", "RIGHTSHIFT", "LEFTMETA", "RIGHTMETA"}
-)  # fmt: skip
 _TYPING_KEYS = frozenset(
     {"SPACE", "ENTER", "KPENTER", "TAB", "BACKSPACE",
      "MINUS", "EQUAL", "GRAVE", "COMMA", "DOT", "SLASH", "SEMICOLON",
@@ -89,16 +131,29 @@ _FOCUSED_APP_KEYS = frozenset(
 
 
 def hotkey_risk(key: str) -> str | None:
-    """Classify a hotkey token such as `KEY_A`; None means a safe dedicated key.
+    """Classify a key or chord token such as `KEY_A` or `CTRL+KEY_A`; None is safe.
 
-    "modifier" is a bare Ctrl, Shift, Alt or Super; "typing" a key hit during normal
-    input (letters, digits, punctuation, Space); "focused-app" a key the app being typed
-    in also acts on (F1 to F12, Escape, Delete, arrows, Caps Lock, Num Lock, Menu);
-    "paste" is Insert, part of the Shift+Insert paste. `hotkey_warning_text` gives the
-    layout-aware caution.
+    "modifier" is a bare Ctrl, Shift, Alt or Super; "typing" a bare key hit during
+    normal input; "focused-app" a key or chord the focused app also acts on; "paste" is
+    Insert or Shift+Insert. `hotkey_warning_text` gives the layout-aware caution.
     """
-    token = key.removeprefix("KEY_")
-    if token in _MODIFIER_KEYS:
+    try:
+        modifiers, main_key = split_hotkey(key)
+    except ValueError:
+        modifiers, main_key = (), key
+    token = main_key.removeprefix("KEY_")
+    if modifiers:
+        if token == "INSERT" and "SHIFT" in modifiers:
+            return "paste"
+        if (
+            token in _TYPING_KEYS
+            or (len(token) == 1 and token.isalnum())
+            or token in _FOCUSED_APP_KEYS
+            or token == "INSERT"
+        ):
+            return "focused-app"
+        return None
+    if modifier_for_token(main_key) is not None:
         return "modifier"
     if token in _TYPING_KEYS or (len(token) == 1 and token.isalnum()):
         return "typing"

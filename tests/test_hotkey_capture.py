@@ -23,6 +23,50 @@ def test_a_safe_key_is_selected_by_its_evdev_token(display):
     assert selected == ["KEY_F13"]
 
 
+def test_a_modifier_chord_matches_gtk_key_events():
+    from quoth import hotkey_capture
+
+    # Evdev 183 (F13) -> GTK 191; evdev 29 (KEY_LEFTCTRL) -> GTK 37.
+    assert hotkey_capture.hotkey_matches_event(
+        "CTRL+KEY_F13", 191, Gdk.ModifierType.CONTROL_MASK
+    )
+    assert not hotkey_capture.hotkey_matches_event(
+        "CTRL+KEY_F13", 191, Gdk.ModifierType(0)
+    )
+    assert not hotkey_capture.hotkey_matches_event(
+        "CTRL+KEY_F13",
+        191,
+        Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK,
+    )
+    assert hotkey_capture.hotkey_uses_keycode("CTRL+KEY_F13", 37)
+    assert hotkey_capture.hotkey_uses_keycode("CTRL+KEY_F13", 191)
+    assert not hotkey_capture.hotkey_uses_keycode("CTRL+KEY_F13", 38)
+
+
+def test_a_modifier_chord_is_captured_and_bare_modifier_warns(display):
+    from quoth import hotkey_capture
+
+    selected = []
+    capture = hotkey_capture._HotkeyCapture(None, selected.append)
+    capture._show_prompt()
+    capture._on_key_pressed(None, Gdk.KEY_Control_L, 37, 0)
+    capture._on_key_pressed(None, Gdk.KEY_F13, 191, Gdk.ModifierType.CONTROL_MASK)
+    assert selected == ["CTRL+KEY_F13"]
+
+    selected.clear()
+    capture = hotkey_capture._HotkeyCapture(None, selected.append)
+    capture._show_prompt()
+    capture._on_key_pressed(None, Gdk.KEY_Control_L, 37, 0)
+    capture._on_key_released(None, Gdk.KEY_Control_L, 37, 0)
+    assert selected == []
+    assert any(
+        "Ctrl (Left) is a modifier key" in t
+        for t in shown_texts(capture._dialog.get_child())
+    )
+    button(capture._dialog.get_child(), "Use anyway").emit("clicked")
+    assert selected == ["KEY_LEFTCTRL"]
+
+
 def test_a_risky_key_is_selected_only_once_confirmed(display):
     from quoth import hotkey_capture
 

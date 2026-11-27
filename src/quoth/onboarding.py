@@ -878,11 +878,8 @@ class OnboardingAssistant:
         self._reset_shortcut_demo()
         return page
 
-    def _is_hotkey(self, keycode: int) -> bool:
-        return hotkey_capture.token_for_keycode(keycode) == self._config.hotkey
-
-    def _on_shortcut_key_pressed(self, _c, _keyval, keycode: int, _state) -> bool:
-        if not self._is_hotkey(keycode):
+    def _on_shortcut_key_pressed(self, _c, _keyval, keycode: int, state) -> bool:
+        if not hotkey_capture.hotkey_matches_event(self._config.hotkey, keycode, state):
             return False
         if self._key_down:
             return True  # the key repeating while held
@@ -892,7 +889,9 @@ class OnboardingAssistant:
         return True
 
     def _on_shortcut_key_released(self, _c, _keyval, keycode: int, _state) -> None:
-        if not self._is_hotkey(keycode):
+        if not self._key_down or not hotkey_capture.hotkey_uses_keycode(
+            self._config.hotkey, keycode
+        ):
             return
         self._key_down = False
         self._keycap.remove_css_class("pressed")
