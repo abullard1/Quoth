@@ -17,6 +17,8 @@ from quoth import APP_ID
 from quoth.tray import (
     _ID_COPY_LAST,
     _ID_LANG_BASE,
+    _ID_LANGUAGE,
+    _ID_MODEL,
     _ID_MODEL_BASE,
     _ID_QUIT,
     _ID_SETTINGS,
@@ -488,16 +490,74 @@ class TestMenuEvents:
 
 
 class TestMenuRevision:
-    def test_set_update_available_bumps_revision_and_signals(self, host):
+    def test_update_item_change_bumps_revision_and_signals(self, host):
         layout = GLib.Variant("(iias)", (0, -1, []))
         before, _root = host.call(*_MENU, "GetLayout", layout).unpack()
-        host.tray.set_update_available("1.2.3")
+        host.menu.update_available = lambda: "1.2.3"
+        host.tray.refresh_menu()
         wait_until(lambda: host.signals)
         # The new revision, and the root as the changed parent.
         assert host.signals == [
             (_MENU, "LayoutUpdated", GLib.Variant("(ui)", (before + 1, 0)))
         ]
         assert host.call(*_MENU, "GetLayout", layout).unpack()[0] == before + 1
+
+    def test_about_to_show_tracks_layout_changes(self, host):
+        layout = GLib.Variant("(iias)", (0, -1, []))
+        host.call(*_MENU, "GetLayout", layout)
+        for item_id in (0, _ID_LANGUAGE, _ID_MODEL):
+            assert not host.call(
+                *_MENU, "AboutToShow", GLib.Variant("(i)", (item_id,))
+            ).unpack()[0]
+
+        host.menu.get_language = lambda: "de"
+        assert host.call(*_MENU, "AboutToShow", GLib.Variant("(i)", (0,))).unpack() == (
+            True,
+        )
+        assert host.call(
+            *_MENU, "AboutToShow", GLib.Variant("(i)", (_ID_LANGUAGE,))
+        ).unpack() == (True,)
+        assert host.call(
+            *_MENU, "AboutToShow", GLib.Variant("(i)", (_ID_MODEL,))
+        ).unpack() == (False,)
+
+        host.call(*_MENU, "GetLayout", layout)
+        assert host.call(
+            *_MENU, "AboutToShow", GLib.Variant("(i)", (_ID_LANGUAGE,))
+        ).unpack() == (False,)
+
+        host.menu.list_models = lambda: ["small"]
+        host.menu.get_model = lambda: "small"
+        assert host.call(
+            *_MENU, "AboutToShow", GLib.Variant("(i)", (_ID_MODEL,))
+        ).unpack() == (True,)
+
+        host.call(*_MENU, "GetLayout", layout)
+        assert host.call(
+            *_MENU, "AboutToShow", GLib.Variant("(i)", (_ID_MODEL,))
+        ).unpack() == (False,)
+
+    def test_about_to_show_group_reports_changed_and_missing_ids(self, host):
+        host.call(*_MENU, "GetLayout", GLib.Variant("(iias)", (0, -1, [])))
+        host.menu.get_language = lambda: "de"
+        assert host.call(
+            *_MENU,
+            "AboutToShowGroup",
+            GLib.Variant("(ai)", ([0, _ID_LANGUAGE, _ID_MODEL, 9999],)),
+        ).unpack() == ([0, _ID_LANGUAGE], [9999])
+
+    def test_refresh_menu_signals_only_when_layout_changed(self, host):
+        layout = GLib.Variant("(iias)", (0, -1, []))
+        before, _root = host.call(*_MENU, "GetLayout", layout).unpack()
+        host.tray.refresh_menu()
+        assert host.signals == []
+
+        host.menu.get_language = lambda: "de"
+        host.tray.refresh_menu()
+        wait_until(lambda: host.signals)
+        assert host.signals == [
+            (_MENU, "LayoutUpdated", GLib.Variant("(ui)", (before + 1, 0)))
+        ]
 
 
 class TestTrayLifecycle:
@@ -672,7 +732,7 @@ class TestOnTheBus:
                 "(ai)",
                 ([9999],),
             ),
-            # needUpdate=true: caching hosts re-fetch on open, so checkmarks are fresh.
+            # Before the first GetLayout, every item needs a fetch.
             ("AboutToShow", GLib.Variant("(i)", (0,)), "(b)", (True,)),
             (
                 "AboutToShowGroup",
