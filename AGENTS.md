@@ -41,6 +41,7 @@ These guard against crashes, memory corruption and lost dictations.
 
 ## Conventions
 
+- **Design and refactoring**: favour strategic design over tactical patches. Every change should read as if the codebase had been designed that way from the start, with one cohesive model and clean data flow. Existing code is not fixed in stone: reshape, move, simplify or delete outdated seams first ("make the change easy, then make the easy change") rather than bolting workarounds onto them, while keeping the critical invariants, import tiers and stable user-facing interfaces intact.
 - **Type hints**: Python 3.12+ style (`str | None`, `list[str]`); never `Optional`/`List`.
 - **Comments**: explain what the code does and why it must be this way, never how it came to be. **No workflow leakage**: no narration of the change, the review, the alternatives considered, or the conversation that produced it; no issue, PR or decision-record references; state the reason inline instead. Write for the next reader, not the reviewer. Keep them short: the median block here is **2 lines**. No em dashes.
 - **Private members**: underscore prefix (`_config`, `_state`).

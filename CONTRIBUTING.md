@@ -3,10 +3,14 @@
 Quoth is a Python 3.12+ GTK4 application. Its API floors are GTK 4.14, libadwaita
 1.5 and GLib 2.80, as on Ubuntu 24.04: use no newer GTK, libadwaita or GLib API
 without a version or feature check. Use `uv` for Python tooling and keep changes
-focused on one demonstrated need. Prefer extending the module that already does
-the job, the standard library or a supported platform API over a new abstraction.
-Open an issue before starting a larger change, so its direction can be agreed
-first.
+focused on one demonstrated need. Shape each change so it belongs naturally in
+the codebase rather than bolting on a workaround: refactor, move or remove
+existing seams when that yields a cleaner whole, while keeping the
+[stable interfaces](SUPPORT.md#stable-interfaces) and
+[critical invariants](AGENTS.md#critical-invariants-do-not-break) intact. Prefer
+extending the module that already does the job, the standard library or a
+supported platform API over a new abstraction. Open an issue before starting a
+larger change, so its direction can be agreed first.
 
 Contributions are licensed under the project's GPL-3.0-or-later.
 
