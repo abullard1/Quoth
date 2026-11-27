@@ -12,7 +12,8 @@ The icon shows the state (idle, recording, transcribing) and cycles frames while
 recording or transcribing (`_PULSE`) unless `set_animated` turned that off; it is the
 main recording indicator where the overlay pill is unavailable. `_menu_model()` rebuilds
 the menu from the injected `TrayMenu` on every request, and `AboutToShow` answers
-`needUpdate=true` so hosts re-fetch on open, even COSMIC, which ignores `LayoutUpdated`.
+`needUpdate=true` only when an item's layout changed since `GetLayout`, so hosts
+re-fetch stale state without rebuilding and closing submenus on GNOME AppIndicator.
 """
 
 import traceback
@@ -277,6 +278,7 @@ class QuothTray:
         self._menu_reg_id = 0
         self._watcher_watch_id = 0
         self._menu_revision = 1
+        self._served_layouts: dict[int, tuple] = {}
         self._menu_failures: set[tuple] = set()
         # dbusmenu method -> handler; a method missing here is an UnknownMethod error.
         self._menu_methods: dict[str, Callable] = {
@@ -353,17 +355,14 @@ class QuothTray:
             self._emit_signal("NewToolTip")
         self._maybe_start_pulse()
 
-    def set_update_available(self, version: str | None):
-        """Tell hosts to re-fetch the menu, whose update item may have changed.
-
-        Caching hosts honour LayoutUpdated; COSMIC ignores it but re-fetches on every
-        open. `version` is only logged.
-        """
-        logger.debug(
-            "Tray: update-available changed to {} (menu revision {})",
-            version,
-            self._menu_revision + 1,
-        )
+    def refresh_menu(self) -> None:
+        """Emit LayoutUpdated if the menu tree changed since the last root GetLayout."""
+        root, _by_id = self._menu_model()
+        if (
+            0 in self._served_layouts
+            and self._snapshot(root) == self._served_layouts[0]
+        ):
+            return
         self._menu_revision += 1
         self._emit_menu_signal(
             "LayoutUpdated", GLib.Variant("(ui)", (self._menu_revision, 0))
@@ -641,6 +640,17 @@ class QuothTray:
         index(root)
         return root, by_id
 
+    @staticmethod
+    def _snapshot(item: _Item, cache: dict[int, tuple] | None = None) -> tuple:
+        snap = (
+            item.id,
+            tuple(sorted((k, v.unpack()) for k, v in item.props.items())),
+            tuple(QuothTray._snapshot(child, cache) for child in item.children),
+        )
+        if cache is not None:
+            cache[item.id] = snap
+        return snap
+
     def _layout(self, item: _Item):
         """Return an item's (ia{sv}av) layout as a Python tuple.
 
@@ -688,6 +698,7 @@ class QuothTray:
                 "com.canonical.dbusmenu.Error", f"No menu item {parent_id}"
             )
             return
+        self._snapshot(target, self._served_layouts)
         layout = self._layout(target)
         invocation.return_value(
             GLib.Variant("(u(ia{sv}av))", (self._menu_revision, layout))
@@ -732,13 +743,26 @@ class QuothTray:
         invocation.return_value(GLib.Variant("(ai)", (id_errors,)))
 
     def _menu_about_to_show(self, params, invocation):
-        # needUpdate=true makes caching hosts re-fetch the layout before showing, so
-        # labels and checkmarks are always current.
-        invocation.return_value(GLib.Variant("(b)", (True,)))
+        (item_id,) = params.unpack()
+        _root, by_id = self._menu_model()
+        item = by_id.get(item_id)
+        need_update = item is not None and self._snapshot(
+            item
+        ) != self._served_layouts.get(item_id)
+        invocation.return_value(GLib.Variant("(b)", (need_update,)))
 
     def _menu_about_to_show_group(self, params, invocation):
         (ids,) = params.unpack()
-        invocation.return_value(GLib.Variant("(aiai)", (list(ids), [])))
+        _root, by_id = self._menu_model()
+        updates_needed = []
+        id_errors = []
+        for item_id in ids:
+            item = by_id.get(item_id)
+            if item is None:
+                id_errors.append(item_id)
+            elif self._snapshot(item) != self._served_layouts.get(item_id):
+                updates_needed.append(item_id)
+        invocation.return_value(GLib.Variant("(aiai)", (updates_needed, id_errors)))
 
     @staticmethod
     def _filter_props(
