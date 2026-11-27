@@ -120,7 +120,8 @@ instead of holding with native keyboard capture. Through the shortcuts portal,
 as in the Flatpak, such a key's release arrives with its press, so holding it
 records nothing: choose **Tap to start and stop** for it. If a portal is
 unavailable, bind the toggle command in your desktop's keyboard settings; that
-shortcut toggles and cannot hold.
+shortcut toggles and cannot hold. Native keyboard capture accepts a single key or
+a modifier chord (such as `Ctrl+F13`).
 
 | Action | Command |
 |---|---|

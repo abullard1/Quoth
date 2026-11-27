@@ -3,7 +3,7 @@
 
 """The evdev hotkey listener.
 
-Reports each press and release of one key from every keyboard that can send it;
+Reports each press and release of one key or modifier chord from attached keyboards;
 `trigger.hotkey_action` decides what they do.
 """
 
@@ -13,6 +13,7 @@ import selectors
 import threading
 import time
 from collections.abc import Callable, Container
+from dataclasses import dataclass
 from enum import Enum, auto
 
 # python-evdev is absent in some environments: the Flatpak does not bundle it and uses
@@ -27,6 +28,7 @@ except ImportError:
 
 from loguru import logger
 
+from quoth import keynames
 from quoth.trigger import TAP_TO_TOGGLE
 
 
@@ -65,11 +67,28 @@ def scancode_for_key_name(token: str) -> int | None:
     return ecodes.ecodes.get(token)
 
 
-def _keycode(hotkey: str) -> int:
-    keycode = scancode_for_key_name(hotkey)
+@dataclass(frozen=True)
+class _Binding:
+    keycode: int
+    modifier_groups: tuple[frozenset[int], ...] = ()
+    required_modifiers: frozenset[int] = frozenset()
+
+
+def _parse_hotkey(hotkey: str) -> _Binding:
+    modifiers, key = keynames.split_hotkey(hotkey)
+    keycode = scancode_for_key_name(key)
     if keycode is None:
-        raise ValueError(f"Unknown key: {hotkey}")
-    return keycode
+        raise ValueError(f"Unknown key: {key}")
+    groups = tuple(
+        frozenset(
+            code
+            for token in keynames.HOTKEY_MODIFIERS[modifier]
+            if (code := scancode_for_key_name(token)) is not None
+        )
+        for modifier in modifiers
+    )
+    required = frozenset(code for group in groups for code in group)
+    return _Binding(keycode, groups, required)
 
 
 def _name(source: object) -> str:
@@ -147,7 +166,11 @@ def find_keyboards(keycode: int, known: Container[str] = ()) -> list[evdev.Input
 
 def keyboard_available(hotkey: str) -> bool:
     """Whether a device that can send `hotkey` can be opened now; none is kept open."""
-    keycode = scancode_for_key_name(hotkey)
+    try:
+        _modifiers, key = keynames.split_hotkey(hotkey)
+    except ValueError:
+        return False
+    keycode = scancode_for_key_name(key)
     if not evdev_available() or keycode is None:
         return False
     try:
@@ -198,10 +221,18 @@ class KeyListener:
                 "python-evdev is unavailable: the evdev hotkey listener cannot start "
                 "(the Flatpak uses the shortcuts portal or `quoth --toggle`)"
             )
-        self._keycode = _keycode(hotkey)
+        self._binding = _parse_hotkey(hotkey)
+        # shortcut: chords check _active_keys on the triggering keyboard; add
+        # cross-device state if users need split-keyboard chords
+        self._all_mod_codes = frozenset(
+            code
+            for tokens in keynames.HOTKEY_MODIFIERS.values()
+            for token in tokens
+            if (code := scancode_for_key_name(token)) is not None
+        )
         # The key the open devices were chosen for; a rebind makes the next
         # reconcile drop the devices that cannot send the new one.
-        self._filtered_for = self._keycode
+        self._filtered_for = self._binding.keycode
         self._lock = threading.Lock()
         self._held_source: object | None = None
         self._held_since: float | None = None
@@ -311,7 +342,7 @@ class KeyListener:
                     if not self._devices and not self._stopping.is_set():
                         logger.warning(
                             "No keyboard can send {}; waiting for one",
-                            key_name_for_scancode(self._keycode),
+                            key_name_for_scancode(self._binding.keycode),
                         )
                     self._set_availability()
                     next_discovery = time.monotonic() + _RESCAN_S
@@ -380,25 +411,49 @@ class KeyListener:
             self._accepting = False
         self._notify_state(ListenerState.WAITING)
 
+    def _modifiers_active(self, active: Container[int], binding: _Binding) -> bool:
+        if not binding.modifier_groups:
+            return True
+        held = set(active)
+        return all(group & held for group in binding.modifier_groups) and not (
+            (held & self._all_mod_codes) - binding.required_modifiers
+        )
+
+    def _modifiers_match(self, source: object, binding: _Binding) -> bool:
+        if not binding.modifier_groups:
+            return True
+        if not hasattr(source, "active_keys"):
+            return False
+        try:
+            active = _active_keys(source)
+        except OSError:
+            return False
+        return self._modifiers_active(active, binding)
+
     def _reconcile_devices(self, selector: selectors.BaseSelector) -> None:
-        keycode = self._keycode
-        if keycode != self._filtered_for:
-            self._filtered_for = keycode
+        with self._lock:
+            binding = self._binding
+            held = self._held_source
+        if binding.keycode != self._filtered_for:
+            self._filtered_for = binding.keycode
             for device in list(self._devices):
-                if not _sends(device, keycode):
+                if not _sends(device, binding.keycode):
                     self._drop_device(device, selector, deliberate=True)
         # A program that grabs the device mid-press, such as a remapper starting, takes
         # its key-up, while the kernel's key state shows the key released.
-        with self._lock:
-            held = self._held_source
         if held in self._devices:
             try:
-                if keycode not in _active_keys(held):
+                active = _active_keys(held)
+                if binding.keycode not in active or not self._modifiers_active(
+                    active, binding
+                ):
                     self._release(held)
             except OSError:
                 self._drop_device(held, selector)
         try:
-            found = find_keyboards(keycode, known={d.path for d in self._devices})
+            found = find_keyboards(
+                binding.keycode, known={d.path for d in self._devices}
+            )
         except OSError as error:
             if self._stopping.is_set():
                 return
@@ -478,6 +533,8 @@ class KeyListener:
     def _handle_event(
         self, event: evdev.InputEvent, source: object = _DIRECT_SOURCE
     ) -> None:
+        with self._lock:
+            binding = self._binding
         source_id = id(source)
         if event.type == ecodes.EV_SYN:
             if event.code == ecodes.SYN_DROPPED:
@@ -487,18 +544,28 @@ class KeyListener:
                 active_keys = _active_keys(source)
                 with self._lock:
                     held_here = self._held_source is source
-                if held_here and self._keycode not in active_keys:
+                if held_here and (
+                    binding.keycode not in active_keys
+                    or not self._modifiers_active(active_keys, binding)
+                ):
                     self._release(source)
             return
         if source_id in self._dropped_sources or event.type != ecodes.EV_KEY:
             return
         key_event = evdev.categorize(event)
-        if key_event.scancode != self._keycode:
-            return
-        if key_event.keystate == evdev.KeyEvent.key_down:
-            self._press(source, event.timestamp())
-        elif key_event.keystate == evdev.KeyEvent.key_up:
-            self._release(source, event.timestamp())
+        if key_event.scancode == binding.keycode:
+            if key_event.keystate == evdev.KeyEvent.key_down:
+                if self._modifiers_match(source, binding):
+                    self._press(source, event.timestamp())
+            elif key_event.keystate == evdev.KeyEvent.key_up:
+                self._release(source, event.timestamp())
+        elif (
+            binding.modifier_groups
+            and key_event.scancode in binding.required_modifiers
+            and key_event.keystate == evdev.KeyEvent.key_up
+            and not self._modifiers_match(source, binding)
+        ):
+            self._release(source)
 
     def _fail(self) -> None:
         with self._lock:
@@ -516,7 +583,11 @@ class KeyListener:
         """
         if self._thread is not None:
             return False
-        found = list(devices) if devices is not None else find_keyboards(self._keycode)
+        found = (
+            list(devices)
+            if devices is not None
+            else find_keyboards(self._binding.keycode)
+        )
         if not found and not evdev.list_devices():
             return False
         paths = [device.path for device in found]
@@ -535,15 +606,15 @@ class KeyListener:
         return True
 
     def rebind(self, hotkey: str) -> None:
-        """Watch another key from the next event; raise `ValueError` for an unknown one.
+        """Watch another key or chord from the next event; reject an unknown one.
 
         A held press of the old key is released, since its key-up will no longer match.
         The next reconcile opens the devices that can send the new key and drops those
         that cannot.
         """
-        keycode = _keycode(hotkey)
+        binding = _parse_hotkey(hotkey)
         with self._lock:
-            self._keycode = keycode
+            self._binding = binding
             forgotten = bool(self._unholdable)
             self._unholdable.clear()
             held = self._held_source

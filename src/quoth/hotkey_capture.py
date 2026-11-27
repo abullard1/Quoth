@@ -33,9 +33,15 @@ from quoth import keynames
 from quoth.listener import key_name_for_scancode, scancode_for_key_name
 from quoth.trigger import PUSH_TO_HOLD, TAP_TO_TOGGLE
 
-_PROMPT = "Press the key you'd like to use to start dictation."
+_PROMPT = "Press a key or key combination to start dictation."
 # A GTK hardware keycode is the evdev scancode plus this (the X11 legacy XKB kept).
 _XKB_OFFSET = 8
+_GDK_MODIFIERS = (
+    ("CTRL", Gdk.ModifierType.CONTROL_MASK),
+    ("ALT", Gdk.ModifierType.ALT_MASK),
+    ("SHIFT", Gdk.ModifierType.SHIFT_MASK),
+    ("SUPER", Gdk.ModifierType.SUPER_MASK),
+)
 
 # What onboarding and Settings call each input mode, so the two read the same.
 MODE_LABELS = {
@@ -49,20 +55,54 @@ def token_for_keycode(keycode: int) -> str | None:
     return key_name_for_scancode(keycode - _XKB_OFFSET)
 
 
+def _parse_binding(hotkey: str) -> tuple[tuple[str, ...], str] | None:
+    try:
+        return keynames.split_hotkey(hotkey)
+    except ValueError:
+        return None
+
+
 def hotkey_label(token: str) -> str:
     """Return the user's keycap label for a hotkey `token`.
 
     That is the glyph the first configured layout prints (`KEY_Y` -> "Z" on a German
-    layout), else the friendly evdev name ("F13", "Space"). The token is the physical
-    binding; only the label follows the layout.
+    layout), else the friendly evdev name ("F13", "Space"). The key token is physical;
+    only the label follows the layout.
     """
-    code = scancode_for_key_name(token)
+    parsed = _parse_binding(token)
+    key = parsed[1] if parsed is not None else token
+    code = scancode_for_key_name(key)
     display = Gdk.Display.get_default()
     if code is None or display is None:
-        return keynames.format_key(token)
+        return keynames.format_hotkey(token)
     ok, keyval, *_ = display.translate_key(code + _XKB_OFFSET, Gdk.ModifierType(0), 0)
     codepoint = Gdk.keyval_to_unicode(keyval) if ok else 0
-    return keynames.printable_label(codepoint, token)
+    return keynames.format_hotkey(token, keynames.printable_label(codepoint, key))
+
+
+def hotkey_matches_event(hotkey: str, keycode: int, state: Gdk.ModifierType) -> bool:
+    """Whether a GTK key event matches a configured key or modifier chord."""
+    token = token_for_keycode(keycode)
+    parsed = _parse_binding(hotkey)
+    if token is None or parsed is None:
+        return False
+    modifiers, key = parsed
+    if token != key:
+        return False
+    active = tuple(name for name, mask in _GDK_MODIFIERS if state & mask)
+    return active == modifiers
+
+
+def hotkey_uses_keycode(hotkey: str, keycode: int) -> bool:
+    """Whether a physical key is the main key or a modifier of `hotkey`."""
+    token = token_for_keycode(keycode)
+    parsed = _parse_binding(hotkey)
+    if token is None or parsed is None:
+        return False
+    modifiers, key = parsed
+    return token == key or any(
+        token in keynames.HOTKEY_MODIFIERS[modifier] for modifier in modifiers
+    )
 
 
 def capture_hotkey(
@@ -82,10 +122,10 @@ def capture_hotkey(
 
 
 class _HotkeyCapture:
-    """A staged capture dialog that reads one key through a `Gtk.EventControllerKey`.
+    """A staged capture dialog that reads a key or modifier chord.
 
     The stages run press -> warn/confirm. `_listening` gates the key handler so the
-    warning-stage buttons keep working, and Escape always cancels, so it can never be
+    warning-stage buttons keep working, and unmodified Escape cancels so it is not
     bound by accident.
     """
 
@@ -98,6 +138,8 @@ class _HotkeyCapture:
         self._parent = parent
         self._on_selected = on_selected
         self._listening = False
+        self._held_modifiers: dict[str, str] = {}
+        self._pending_bare_modifier: str | None = None
         self._dialog = Adw.Dialog(title="Dictation key")
         self._dialog.set_content_width(380)
         if on_closed is not None:
@@ -105,6 +147,7 @@ class _HotkeyCapture:
         controller = Gtk.EventControllerKey()
         controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         controller.connect("key-pressed", self._on_key_pressed)
+        controller.connect("key-released", self._on_key_released)
         self._dialog.add_controller(controller)
 
     def begin(self) -> None:
@@ -112,8 +155,12 @@ class _HotkeyCapture:
         self._show_prompt()
         self._dialog.present(self._parent)
 
-    def _on_key_pressed(self, _controller, keyval, keycode, _state) -> bool:
-        if keyval == Gdk.KEY_Escape:
+    def _on_key_pressed(self, _controller, keyval, keycode, state) -> bool:
+        if (
+            keyval == Gdk.KEY_Escape
+            and not self._held_modifiers
+            and not any(state & mask for _name, mask in _GDK_MODIFIERS)
+        ):
             self._dialog.close()
             return True
         if not self._listening:
@@ -124,16 +171,43 @@ class _HotkeyCapture:
                 "Hotkey capture: unmapped scancode ignored (keycode={})", keycode
             )
             return True  # unmapped scancode: ignore, keep listening
-        risk = keynames.hotkey_risk(token)
+        if (modifier := keynames.modifier_for_token(token)) is not None:
+            self._held_modifiers[token] = modifier
+            if self._pending_bare_modifier is None:
+                self._pending_bare_modifier = token
+            return True
+        self._pending_bare_modifier = None
+        active = set(self._held_modifiers.values()) | {
+            name for name, mask in _GDK_MODIFIERS if state & mask
+        }
+        mods = tuple(name for name in keynames.HOTKEY_MODIFIERS if name in active)
+        binding = "+".join((*mods, token))
+        risk = keynames.hotkey_risk(binding)
         if risk is None:
-            self._finish(token)
+            self._finish(binding)
         else:
-            self._show_warning(token, risk)
+            self._show_warning(binding, risk)
         return True
+
+    def _on_key_released(self, _controller, _keyval, keycode, _state) -> None:
+        token = token_for_keycode(keycode)
+        if token is None or token not in self._held_modifiers:
+            return
+        del self._held_modifiers[token]
+        if (
+            self._listening
+            and not self._held_modifiers
+            and self._pending_bare_modifier is not None
+        ):
+            bare = self._pending_bare_modifier
+            self._pending_bare_modifier = None
+            self._show_warning(bare, "modifier")
 
     # --- stages ---
 
     def _show_prompt(self) -> None:
+        self._held_modifiers.clear()
+        self._pending_bare_modifier = None
         self._set_stage(
             "Press a key",
             _PROMPT,

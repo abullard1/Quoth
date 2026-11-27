@@ -19,7 +19,7 @@
            app, so the default is an inert key: Pause is unbound on GNOME, KDE and COSMIC. -->
       <default>'KEY_PAUSE'</default>
       <summary>Native dictation key</summary>
-      <description>The evdev key name that triggers dictation outside Flatpak.</description>
+      <description>The evdev key name or modifier chord (for example CTRL+KEY_F13) that triggers dictation outside Flatpak.</description>
     </key>
 
     <key name="portal-shortcut-enabled" type="b">
