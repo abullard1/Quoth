@@ -1044,7 +1044,7 @@ class QuothApp(Adw.Application):
             self._settings_window.refresh_updates()
         if self._tray and not self._updates.is_checking:
             # Nudge hosts that cache the menu to re-fetch its "Update available" item.
-            self._tray.set_update_available(self._updates.available)
+            self._tray.refresh_menu()
 
     def _notify_update(self, version: str) -> None:
         """Announce an available update in a desktop notification; never install it."""
@@ -1514,6 +1514,8 @@ class QuothApp(Adw.Application):
             self._stats, today=date.today().isoformat()
         )
         stats.save(self._stats_path, self._stats)
+        if self._tray:
+            self._tray.refresh_menu()
 
     def _usage_since_label(self) -> str | None:
         """Return the first dictation's month and year for the Settings usage summary.
@@ -1584,6 +1586,11 @@ class QuothApp(Adw.Application):
                 self._sound.shutdown()
         elif name in ("device", "model"):
             self._reconcile_engine()
+            if name == "model" and self._tray:
+                self._tray.refresh_menu()
+        elif name == "language":
+            if self._tray:
+                self._tray.refresh_menu()
         elif name == "mic_source":
             self._controller.apply_mic_source()
         elif name == "vad":
@@ -1619,6 +1626,8 @@ class QuothApp(Adw.Application):
         started mid-dictation would take the inference lock its transcription waits on.
         """
         self._controller.when_idle(self._fit_engine)
+        if self._tray:
+            self._tray.refresh_menu()
 
     def _fit_engine(self) -> None:
         """Re-resolve the effective device and drop a context whose weights are gone.
@@ -1736,6 +1745,8 @@ class QuothApp(Adw.Application):
         logger.debug("Settings window closed")
         self._controller.set_input_monitoring(window, False)
         self._settings_window = None
+        if self._tray:
+            self._tray.refresh_menu()
         return False
 
     def _set_hotkey_capture(self, active: bool):
