@@ -315,7 +315,7 @@ class TestDispatch:
         listener = KeyListener(hotkey="KEY_F13", on_press=lambda: started.append(1))
         _accept(listener)
 
-        listener._handle_event(_press(listener._keycode + 1))
+        listener._handle_event(_press(ecodes.KEY_F13 + 1))
         listener._handle_event(InputEvent(0, 0, ecodes.EV_MSC, 0, 0))
 
         assert started == []
@@ -425,6 +425,71 @@ class TestDispatch:
 
         assert released == [1]
         assert listener._accepting is False
+
+    def test_availability_probe_accepts_modifier_chords(self):
+        device = MagicMock()
+        with patch("quoth.listener.find_keyboards", return_value=[device]) as find:
+            assert keyboard_available("CTRL+KEY_F13") is True
+        find.assert_called_once_with(ecodes.KEY_F13)
+        device.close.assert_called_once()
+
+    def test_modifier_chord_fires_only_with_exact_modifiers_and_releases_on_mod_up(
+        self,
+    ):
+        edges = []
+        device = _PipeDevice("keyboard", keys=[ecodes.KEY_LEFTCTRL, ecodes.KEY_F13])
+        listener = KeyListener(
+            hotkey="CTRL+KEY_F13",
+            on_press=lambda: edges.append("down"),
+            on_release=lambda: edges.append("up"),
+        )
+        _accept(listener)
+
+        # Bare F13 without Ctrl does not fire.
+        device._active_keys = [ecodes.KEY_F13]
+        listener._handle_event(_press(ecodes.KEY_F13, usec=0), device)
+        device._active_keys = []
+        listener._handle_event(_release(ecodes.KEY_F13, usec=50_000), device)
+        assert edges == []
+
+        # Extra modifier (Ctrl+Shift+F13) does not fire Ctrl+F13.
+        device._active_keys = [
+            ecodes.KEY_LEFTCTRL,
+            ecodes.KEY_LEFTSHIFT,
+            ecodes.KEY_F13,
+        ]
+        listener._handle_event(_press(ecodes.KEY_F13, usec=100_000), device)
+        device._active_keys = [ecodes.KEY_LEFTCTRL]
+        listener._handle_event(_release(ecodes.KEY_F13, usec=150_000), device)
+        assert edges == []
+
+        # Exact Ctrl+F13 fires; releasing Ctrl quickly releases without unholdable.
+        device._active_keys = [ecodes.KEY_LEFTCTRL, ecodes.KEY_F13]
+        listener._handle_event(_press(ecodes.KEY_F13, usec=200_000), device)
+        assert edges == ["down"]
+        device._active_keys = [ecodes.KEY_F13]
+        listener._handle_event(_release(ecodes.KEY_LEFTCTRL, usec=205_000), device)
+        assert edges == ["down", "up"]
+        assert not listener.unholdable
+
+    def test_rebind_switches_between_single_key_and_chord(self):
+        edges = []
+        device = _PipeDevice("keyboard", keys=[ecodes.KEY_LEFTCTRL, ecodes.KEY_F13])
+        listener = KeyListener(
+            hotkey="KEY_F13",
+            on_press=lambda: edges.append("down"),
+            on_release=lambda: edges.append("up"),
+        )
+        _accept(listener)
+
+        listener.rebind("CTRL+KEY_F13")
+        device._active_keys = [ecodes.KEY_F13]
+        listener._handle_event(_press(ecodes.KEY_F13), device)
+        assert edges == []
+
+        device._active_keys = [ecodes.KEY_LEFTCTRL, ecodes.KEY_F13]
+        listener._handle_event(_press(ecodes.KEY_F13), device)
+        assert edges == ["down"]
 
 
 class TestWorkerLifecycle:

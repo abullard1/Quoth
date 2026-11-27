@@ -6,10 +6,13 @@
 import pytest
 
 from quoth.keynames import (
+    format_hotkey,
     format_key,
     hotkey_risk,
     hotkey_warning_text,
+    modifier_for_token,
     printable_label,
+    split_hotkey,
 )
 
 
@@ -32,6 +35,26 @@ class TestFormatKey:
     )
     def test_label(self, key, label):
         assert format_key(key) == label
+
+    def test_modifier_chords_parse_and_format_in_canonical_order(self):
+        assert modifier_for_token("KEY_LEFTCTRL") == "CTRL"
+        assert modifier_for_token("KEY_F13") is None
+        assert split_hotkey("SHIFT+CTRL+KEY_F13") == (("CTRL", "SHIFT"), "KEY_F13")
+        assert format_hotkey("SHIFT+CTRL+KEY_F13") == "Ctrl+Shift+F13"
+        assert format_hotkey("CTRL+KEY_Y", "Z") == "Ctrl+Z"
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "F13",
+            "HYPER+KEY_F13",
+            "CTRL+CTRL+KEY_F13",
+            "CTRL+KEY_LEFTSHIFT",
+        ],
+    )
+    def test_invalid_chords_are_rejected(self, bad):
+        with pytest.raises(ValueError, match="key"):
+            split_hotkey(bad)
 
 
 class TestHotkeyRisk:
@@ -78,6 +101,14 @@ class TestHotkeyRisk:
     def test_bare_modifiers_are_flagged(self):
         for key in ("KEY_LEFTCTRL", "KEY_RIGHTSHIFT", "KEY_LEFTMETA"):
             assert hotkey_risk(key) == "modifier", key
+
+    def test_chords_classify_risk_by_combination(self):
+        assert hotkey_risk("CTRL+KEY_F13") is None
+        assert hotkey_risk("CTRL+KEY_PAUSE") is None
+        assert hotkey_risk("CTRL+KEY_A") == "focused-app"
+        assert hotkey_risk("CTRL+KEY_DELETE") == "focused-app"
+        assert hotkey_risk("CTRL+KEY_INSERT") == "focused-app"
+        assert hotkey_risk("SHIFT+KEY_INSERT") == "paste"
 
 
 class TestHotkeyWarningText:
