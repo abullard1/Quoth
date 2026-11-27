@@ -24,12 +24,15 @@
 
 <p align="center">
   <a href="https://itsfoss.com/quoth-review/"><img src=".github/media/itsfoss-local-ai-pick.svg" alt="It's FOSS Local AI Pick" width="240"></a>
+  &nbsp;
+  <a href="https://alternativeto.net/software/quoth-by-samuel-bullard/about/"><img src=".github/media/alternativeto-badge.svg" alt="Listed on AlternativeTo" width="160"></a>
 </p>
 
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#privacy">Privacy</a> ·
+  <a href="#sponsor">Sponsor</a> ·
   <a href="SUPPORT.md">Support</a>
 </p>
 
@@ -159,6 +162,29 @@ Choose or import a theme in Settings, or edit the active theme file.
 
 Native packages show the floating recording pill on COSMIC, KDE Plasma, Hyprland, niri, and Sway; Flatpak shows it on KDE Plasma. On other desktops (including GNOME), the tray icon and notifications show recording state. See [Desktop compatibility →](SUPPORT.md#desktop-compatibility) for details.
 
+## Sponsor
+
+Sponsorship unlocks nothing; every release stays free. Ongoing and one-time contributions fund regular work on Quoth.
+
+<p align="center">
+  <a href="https://quoth.dev/sponsors">
+    <picture>
+      <source media="(max-width: 640px) and (prefers-color-scheme: dark)" srcset=".github/media/sponsors-mobile-dark.svg">
+      <source media="(max-width: 640px)" srcset=".github/media/sponsors-mobile-light.svg">
+      <source media="(prefers-color-scheme: dark)" srcset=".github/media/sponsors-dark.svg">
+      <img src=".github/media/sponsors-light.svg" alt="Support Quoth sponsor tiers: Supporter €5/mo, Backer €25/mo, Sponsor €100/mo, Company €250/mo, and One-time gift €25 at quoth.dev/sponsors." width="820">
+    </picture>
+  </a>
+</p>
+
+- **Supporter, €5/mo:** A small monthly contribution to keep Quoth going. A thank you.
+- **Backer, €25/mo:** Helps pay for regular work on Quoth. Your name on quoth.dev/sponsors.
+- **Sponsor, €100/mo:** For people or companies who want to be listed as a sponsor. Name and link on quoth.dev/sponsors and in the README.
+- **Company, €250/mo:** For companies that want to show their support more visibly. Logo and link on quoth.dev/sponsors and in the README.
+- **One-time gift, €25:** A one-off contribution, no monthly commitment. A thank you.
+
+[Sponsor Quoth →](https://quoth.dev/sponsors)
+
 ## Help and contribution
 
 - Text does not appear? See [Troubleshooting](SUPPORT.md#troubleshooting).
@@ -168,7 +194,6 @@ Native packages show the floating recording pill on COSMIC, KDE Plasma, Hyprland
 - [Report a security or privacy issue privately](SECURITY.md).
 - [Contribute](CONTRIBUTING.md): setup, checks and architecture. See the [design guide](DESIGN.md) for the visual language.
 - Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
-- [Sponsor Quoth](https://quoth.dev/sponsors).
 
 Quoth is built with AI assistance.
 
